@@ -57,8 +57,8 @@ fly secrets set ADMIN_KEY="$(openssl rand -hex 32)" --app signals-api-prod
 psql "<dev-connection-string>" < migrations/0001_init.sql
 psql "<prod-connection-string>" < migrations/0001_init.sql
 
-# CI/CD auth: create a deploy token and add it as a GitHub Actions secret
-fly tokens create deploy -x 999999h --app signals-api-dev   # or an org-wide token covering both apps
+# CI/CD auth: create an org-wide token so one secret can deploy both apps
+fly tokens create org -x 999999h
 gh secret set FLY_API_TOKEN --body "<token>"
 ```
 
