@@ -2,13 +2,14 @@ import Foundation
 
 /// Dev-loop shortcut: reads the backend base URL / API key from scheme
 /// environment variables so a dev build can skip `ProvisioningView`
-/// entirely. On the Simulator, `http://localhost:8080` reaches a locally
-/// running backend directly; on a real device, point `SIGNALS_API_BASE_URL`
-/// at the Mac's LAN IP instead (localhost on-device means the device
-/// itself, not your Mac).
+/// entirely. Defaults to the hosted Fly dev backend, since that's reachable
+/// from a real device without any local setup; override
+/// `SIGNALS_API_BASE_URL` in the Xcode scheme to point at a locally running
+/// backend instead (`http://localhost:8080` on the Simulator, or the Mac's
+/// LAN IP on a real device -- localhost on-device means the device itself).
 enum DevConfig {
     static var apiBaseURL: URL {
-        let raw = ProcessInfo.processInfo.environment["SIGNALS_API_BASE_URL"] ?? "http://localhost:8080"
+        let raw = ProcessInfo.processInfo.environment["SIGNALS_API_BASE_URL"] ?? "https://signals-api-dev.fly.dev"
         guard let url = URL(string: raw) else {
             fatalError("SIGNALS_API_BASE_URL is not a valid URL: \(raw)")
         }

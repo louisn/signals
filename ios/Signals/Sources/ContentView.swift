@@ -56,6 +56,18 @@ struct ContentView: View {
             }
             .buttonStyle(.bordered)
 
+            // Always reachable, not just via the "no key" banner above --
+            // switching backends (e.g. local -> hosted dev) needs a new key
+            // even when one is already stored, since it's scoped to the
+            // device row on whichever backend issued it.
+            Button("Device connection") {
+                showingProvisioning = true
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .font(.footnote)
+            .accessibilityIdentifier("deviceConnectionButton")
+
             Spacer()
         }
         .padding()
