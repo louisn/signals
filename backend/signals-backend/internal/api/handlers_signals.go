@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"signals-backend/internal/domain"
@@ -91,4 +92,64 @@ func (s *Server) handlePostSignalBatch(w http.ResponseWriter, r *http.Request) {
 		Accepted: acceptedIDs,
 		Rejected: rejected,
 	})
+}
+
+const (
+	defaultSignalsPageLimit = 50
+	maxSignalsPageLimit     = 200
+)
+
+type listSignalsResponse struct {
+	Signals []store.SignalRow `json:"signals"`
+	Limit   int               `json:"limit"`
+	Offset  int               `json:"offset"`
+	HasMore bool              `json:"has_more"`
+}
+
+// handleListSignals serves the observations backing the admin viewer as
+// JSON, filtered/paginated via query params. Admin-only: signal payloads
+// (BLE names, network metadata) aren't meant for device-scoped bearer auth.
+func (s *Server) handleListSignals(w http.ResponseWriter, r *http.Request) {
+	limit := defaultSignalsPageLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= maxSignalsPageLimit {
+			limit = n
+		}
+	}
+	offset := 0
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+	signalType := r.URL.Query().Get("signal_type")
+	if signalType != "" && !domain.ValidSignalTypes[signalType] {
+		writeError(w, http.StatusBadRequest, "invalid_signal_type")
+		return
+	}
+
+	rows, err := s.db.ListSignals(r.Context(), store.ListSignalsOpts{
+		DeviceID:   r.URL.Query().Get("device_id"),
+		SignalType: signalType,
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list_failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, listSignalsResponse{
+		Signals: rows,
+		Limit:   limit,
+		Offset:  offset,
+		HasMore: len(rows) == limit,
+	})
+}
+
+// handleSignalsPage serves the self-contained HTML/JS observation viewer,
+// which fetches /admin/signals.json for its data.
+func (s *Server) handleSignalsPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(signalsPageHTML))
 }

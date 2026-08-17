@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"signals-backend/internal/domain"
 )
@@ -78,4 +80,52 @@ func (p *Postgres) AcceptedIDsForBatch(ctx context.Context, batchID string) ([]s
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// SignalRow is a single observation as returned to the admin viewer.
+type SignalRow struct {
+	ID         string          `json:"id"`
+	DeviceID   string          `json:"device_id"`
+	CapturedAt time.Time       `json:"captured_at"`
+	SignalType string          `json:"signal_type"`
+	Lat        *float64        `json:"lat,omitempty"`
+	Lon        *float64        `json:"lon,omitempty"`
+	Payload    json.RawMessage `json:"payload"`
+}
+
+// ListSignalsOpts filters/paginates ListSignals. Empty DeviceID/SignalType
+// means "no filter" -- callers pass "" rather than building dynamic SQL.
+type ListSignalsOpts struct {
+	DeviceID   string
+	SignalType string
+	Limit      int
+	Offset     int
+}
+
+// ListSignals returns the most recently captured signals matching the given
+// filters, newest first, for the admin observation viewer.
+func (p *Postgres) ListSignals(ctx context.Context, opts ListSignalsOpts) ([]SignalRow, error) {
+	rows, err := p.Pool.Query(ctx, `
+		SELECT id, device_id, captured_at, signal_type, lat, lon, payload
+		FROM signals
+		WHERE ($1 = '' OR device_id = $1::uuid)
+		  AND ($2 = '' OR signal_type = $2)
+		ORDER BY captured_at DESC
+		LIMIT $3 OFFSET $4`,
+		opts.DeviceID, opts.SignalType, opts.Limit, opts.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	signals := make([]SignalRow, 0, opts.Limit)
+	for rows.Next() {
+		var s SignalRow
+		if err := rows.Scan(&s.ID, &s.DeviceID, &s.CapturedAt, &s.SignalType, &s.Lat, &s.Lon, &s.Payload); err != nil {
+			return nil, err
+		}
+		signals = append(signals, s)
+	}
+	return signals, rows.Err()
 }

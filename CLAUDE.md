@@ -30,6 +30,10 @@ go run ./cmd/server
 
 No Go test files exist yet (verified via manual `curl` against `/v1/devices` and `/v1/signals/batches` instead — see the plan's Verification section for the exact idempotency/auth checks worth re-running after backend changes).
 
+## Backend: admin observation viewer
+
+`GET /admin/signals` (HTML) and `GET /admin/signals.json` (filters: `device_id`, `signal_type`; pagination: `limit`/`offset`) are protected by HTTP Basic auth (any username, password = `ADMIN_KEY`) — reuses the same admin key as `POST /v1/devices` rather than adding new infra, so it's live at `https://signals-api-dev.fly.dev/admin/signals` and `https://signals-api-prod.fly.dev/admin/signals` as soon as the backend is deployed. Distinct from `adminAuth` (the `X-Admin-Key` header middleware used by device provisioning): Basic auth lets the browser handle the credential prompt/caching natively for a page view, where a custom header isn't practical.
+
 ## Backend: deployment (Fly.io + GitHub Actions)
 
 Two separate Fly apps, `signals-api-dev` and `signals-api-prod`, each with their own Fly Postgres — configs live at `backend/signals-backend/deploy/fly.dev.toml` / `fly.prod.toml`. `.github/workflows/backend-ci.yml` runs `go build`/`go vet`/`go test` on every push/PR touching the backend; `.github/workflows/backend-deploy.yml` deploys on push to `dev` (→ dev app) or `main` (→ prod app), or manually via `workflow_dispatch`. Dev scales to zero when idle (`min_machines_running = 0`); prod stays warm (`min_machines_running = 1`).

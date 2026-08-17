@@ -51,3 +51,18 @@ func (s *Server) adminAuth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// adminBasicAuth protects the browser-facing observation viewer with the
+// same admin key, via HTTP Basic auth so the browser handles the credential
+// prompt/storage itself rather than needing a custom header set by JS.
+func (s *Server) adminBasicAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, pass, ok := r.BasicAuth()
+		if !ok || s.adminKey == "" || pass != s.adminKey {
+			w.Header().Set("WWW-Authenticate", `Basic realm="signals-admin"`)
+			writeError(w, http.StatusUnauthorized, "invalid_admin_key")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
