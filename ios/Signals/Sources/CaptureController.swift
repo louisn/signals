@@ -115,6 +115,11 @@ final class CaptureController: ObservableObject {
             }
         }
 
+        syncEngine.onPassCompleted = { [weak self] in
+            Task { @MainActor in
+                self?.refreshPendingCount()
+            }
+        }
         syncEngine.start()
         backgroundCoordinator.register()
 

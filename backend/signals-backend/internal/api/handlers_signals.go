@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -60,10 +61,13 @@ func (s *Server) handlePostSignalBatch(w http.ResponseWriter, r *http.Request) {
 	for _, sig := range req.Signals {
 		if reason := domain.ValidateSignal(sig, now); reason != "" {
 			rejected = append(rejected, domain.RejectedSignal{ID: sig.ID, Reason: reason})
+			log.Printf("rejected signal id=%s device=%s type=%s captured_at=%s reason=%s",
+				sig.ID, req.DeviceID, sig.SignalType, sig.CapturedAt, reason)
 			continue
 		}
 		accepted = append(accepted, sig)
 	}
+	log.Printf("batch %s from device %s: %d accepted, %d rejected", req.BatchID, req.DeviceID, len(accepted), len(rejected))
 
 	if len(accepted) > 0 {
 		if err := s.db.InsertBatch(r.Context(), device.ID, req.BatchID, accepted, len(rejected)); err != nil {

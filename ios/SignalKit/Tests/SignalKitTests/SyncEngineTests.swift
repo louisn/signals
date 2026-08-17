@@ -105,4 +105,50 @@ final class SyncEngineTests: XCTestCase {
         // Uploaded, not just claimed -- re-claiming should find nothing left.
         XCTAssertEqual(try store.claimBatch(batchID: "verify").count, 0)
     }
+
+    /// A failed pass schedules its own retry after a multi-second backoff,
+    /// but must not hold `isSyncing` for that whole window -- otherwise a
+    /// manual "sync now" tap (or the foreground trigger) arriving during
+    /// that window would silently no-op instead of getting a real attempt.
+    func testManualTriggerDuringPendingBackoffStillSyncs() throws {
+        let store = try SignalStore(path: ":memory:")
+        let deviceID = UUID()
+        try store.enqueue(makeLocationRecord(deviceID: deviceID))
+        let engine = makeEngine(store: store, deviceID: deviceID)
+
+        StubURLProtocol.shouldFail = true
+        engine.triggerSync()
+
+        let requeued = Date().addingTimeInterval(2)
+        while Date() < requeued, (try? store.pendingCount()) != 1 {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        XCTAssertEqual(try store.pendingCount(), 1, "failed pass should have requeued the record already")
+
+        StubURLProtocol.shouldFail = false
+        engine.triggerSync()
+
+        // The backoff base delay is 5s -- succeeding well inside 1s proves
+        // this manual call wasn't blocked behind the scheduled auto-retry.
+        let deadline = Date().addingTimeInterval(1)
+        while Date() < deadline, (try? store.pendingCount()) != 0 {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        XCTAssertEqual(try store.pendingCount(), 0, "a manual retry must not be blocked by a pending automatic backoff retry")
+    }
+
+    func testOnPassCompletedFiresAfterEachPass() throws {
+        let store = try SignalStore(path: ":memory:")
+        let deviceID = UUID()
+        try store.enqueue(makeLocationRecord(deviceID: deviceID))
+        let engine = makeEngine(store: store, deviceID: deviceID)
+
+        let completed = expectation(description: "pass completed")
+        engine.onPassCompleted = { completed.fulfill() }
+
+        StubURLProtocol.shouldFail = false
+        engine.triggerSync()
+
+        wait(for: [completed], timeout: 2)
+    }
 }

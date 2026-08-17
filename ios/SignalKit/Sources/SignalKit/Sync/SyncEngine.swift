@@ -17,6 +17,13 @@ public final class SyncEngine {
     private var isSyncing = false
     private var backoff = Backoff()
 
+    /// Fired after each sync pass (success, failure, or no-op) so observers
+    /// can refresh UI state that depends on the queue -- `triggerSync()`
+    /// only dispatches the pass asynchronously and returns immediately, so
+    /// polling queue state right after calling it reflects the state from
+    /// *before* the pass ran, not after.
+    public var onPassCompleted: (() -> Void)?
+
     /// Plan calls for retaining uploaded rows ~24-48h before pruning, purely
     /// to bound local DB growth independent of upload success rate.
     private let uploadedRetention: TimeInterval = 48 * 3600
@@ -57,6 +64,7 @@ public final class SyncEngine {
         defer {
             isSyncing = false
             pruneOldUploaded()
+            onPassCompleted?()
         }
 
         while let pendingCount = try? store.pendingCount(), pendingCount > 0 {
@@ -101,12 +109,22 @@ public final class SyncEngine {
                     // stop this pass so we don't spin against a bad token.
                     return
                 }
-                Thread.sleep(forTimeInterval: backoff.next())
+                // Schedule the retry instead of blocking this thread on
+                // Thread.sleep: blocking would hold `isSyncing` for up to the
+                // 10-minute backoff cap, silently swallowing any foreground
+                // or manual "sync now" trigger that arrives in the meantime.
+                scheduleRetry(after: backoff.next())
                 return
 
             case .none:
                 return
             }
+        }
+    }
+
+    private func scheduleRetry(after delay: TimeInterval) {
+        syncQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.triggerSync()
         }
     }
 
