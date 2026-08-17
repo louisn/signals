@@ -16,6 +16,7 @@ import (
 func main() {
 	dsn := requireEnv("DATABASE_URL")
 	adminKey := requireEnv("ADMIN_KEY")
+	viewerKey := envOrDefault("VIEWER_KEY", "")
 	addr := envOrDefault("LISTEN_ADDR", ":8080")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -27,7 +28,7 @@ func main() {
 	}
 	defer db.Close()
 
-	server := api.NewServer(db, adminKey)
+	server := api.NewServer(db, adminKey, viewerKey)
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           server,

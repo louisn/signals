@@ -10,13 +10,14 @@ import (
 )
 
 type Server struct {
-	db       *store.Postgres
-	adminKey string
-	router   chi.Router
+	db        *store.Postgres
+	adminKey  string
+	viewerKey string
+	router    chi.Router
 }
 
-func NewServer(db *store.Postgres, adminKey string) *Server {
-	s := &Server{db: db, adminKey: adminKey}
+func NewServer(db *store.Postgres, adminKey, viewerKey string) *Server {
+	s := &Server{db: db, adminKey: adminKey, viewerKey: viewerKey}
 	s.router = s.routes()
 	return s
 }

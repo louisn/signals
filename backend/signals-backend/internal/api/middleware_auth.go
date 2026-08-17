@@ -52,13 +52,18 @@ func (s *Server) adminAuth(next http.Handler) http.Handler {
 	})
 }
 
-// adminBasicAuth protects the browser-facing observation viewer with the
-// same admin key, via HTTP Basic auth so the browser handles the credential
-// prompt/storage itself rather than needing a custom header set by JS.
+// adminBasicAuth protects the browser-facing observation viewer via HTTP
+// Basic auth so the browser handles the credential prompt/storage itself
+// rather than needing a custom header set by JS. Accepts either the admin
+// key or the read-only viewer key, so viewer access can be shared (and
+// independently revoked) without handing out the key that can provision
+// devices via POST /v1/devices.
 func (s *Server) adminBasicAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, pass, ok := r.BasicAuth()
-		if !ok || s.adminKey == "" || pass != s.adminKey {
+		validAdmin := s.adminKey != "" && pass == s.adminKey
+		validViewer := s.viewerKey != "" && pass == s.viewerKey
+		if !ok || (!validAdmin && !validViewer) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="signals-admin"`)
 			writeError(w, http.StatusUnauthorized, "invalid_admin_key")
 			return
