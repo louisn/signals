@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: signals
+      POSTGRES_PASSWORD: signals
+      POSTGRES_DB: signals
+    ports:
+      - "5433:5432"
+    volumes:
+      - signals_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signals"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  signals_pg_data:

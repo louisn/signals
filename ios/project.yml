@@ -1,0 +1,53 @@
+name: Signals
+options:
+  bundleIdPrefix: com.signals
+  deploymentTarget:
+    iOS: "16.0"
+configs:
+  Debug: debug
+  Release: release
+packages:
+  SignalKit:
+    path: SignalKit
+targets:
+  Signals:
+    type: application
+    platform: iOS
+    sources:
+      - path: Signals/Sources
+    resources:
+      - path: Signals/Resources
+    dependencies:
+      - package: SignalKit
+    info:
+      path: Signals/Resources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSLocationWhenInUseUsageDescription: "Signals tags every captured record with your location so it can be collated across devices and places."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Continuing to capture location in the background lets Signals keep tagging records when the app isn't in the foreground."
+        NSBluetoothAlwaysUsageDescription: "Signals scans for nearby Bluetooth devices as one of the signal types it records."
+        UIBackgroundModes:
+          - location
+          - bluetooth-central
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.signals.sync
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.signals.app
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: 5.0
+        TARGETED_DEVICE_FAMILY: "1"
+  SignalsUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SignalsUITests
+    dependencies:
+      - target: Signals
+    settings:
+      base:
+        SWIFT_VERSION: 5.0
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Signals
