@@ -30,6 +30,40 @@ go run ./cmd/server
 
 No Go test files exist yet (verified via manual `curl` against `/v1/devices` and `/v1/signals/batches` instead — see the plan's Verification section for the exact idempotency/auth checks worth re-running after backend changes).
 
+## Backend: deployment (Fly.io + GitHub Actions)
+
+Two separate Fly apps, `signals-api-dev` and `signals-api-prod`, each with their own Fly Postgres — configs live at `backend/signals-backend/deploy/fly.dev.toml` / `fly.prod.toml`. `.github/workflows/backend-ci.yml` runs `go build`/`go vet`/`go test` on every push/PR touching the backend; `.github/workflows/backend-deploy.yml` deploys on push to `dev` (→ dev app) or `main` (→ prod app), or manually via `workflow_dispatch`. Dev scales to zero when idle (`min_machines_running = 0`); prod stays warm (`min_machines_running = 1`).
+
+**One-time setup (run locally, not from Claude Code — these hit your Fly account/billing):**
+
+```sh
+brew install flyctl   # or: curl -L https://fly.io/install.sh | sh
+fly auth login
+
+cd backend/signals-backend
+fly apps create signals-api-dev
+fly apps create signals-api-prod
+
+fly postgres create --name signals-db-dev --region iad
+fly postgres attach signals-db-dev --app signals-api-dev   # sets DATABASE_URL secret on the app
+
+fly postgres create --name signals-db-prod --region iad
+fly postgres attach signals-db-prod --app signals-api-prod
+
+fly secrets set ADMIN_KEY="$(openssl rand -hex 32)" --app signals-api-dev
+fly secrets set ADMIN_KEY="$(openssl rand -hex 32)" --app signals-api-prod
+
+# Run the migration against each new DB (get the connection string via `fly postgres connect -a signals-db-dev`, etc.)
+psql "<dev-connection-string>" < migrations/0001_init.sql
+psql "<prod-connection-string>" < migrations/0001_init.sql
+
+# CI/CD auth: create a deploy token and add it as a GitHub Actions secret
+fly tokens create deploy -x 999999h --app signals-api-dev   # or an org-wide token covering both apps
+gh secret set FLY_API_TOKEN --body "<token>"
+```
+
+Optionally add GitHub `dev`/`prod` [environments](https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments) to gate `prod` deploys behind manual approval — the deploy workflow already targets `environment: prod`/`dev` per branch, so adding protection rules there is enough, no workflow changes needed.
+
 ## iOS: build, test
 
 ```sh
