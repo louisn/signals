@@ -6,6 +6,12 @@ final class SignalStoreTests: XCTestCase {
         try SignalStore(path: ":memory:")
     }
 
+    private func makeFileBackedStore() throws -> (store: SignalStore, path: String) {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".sqlite").path
+        return (try SignalStore(path: path), path)
+    }
+
     private func makeLocationRecord(deviceID: UUID = UUID()) -> SignalRecord {
         SignalRecord(
             deviceID: deviceID,
@@ -65,5 +71,19 @@ final class SignalStoreTests: XCTestCase {
         try store.markFailed(ids: claimed.map(\.id), permanent: true)
 
         XCTAssertEqual(try store.pendingCount(), 0)
+    }
+
+    /// A row claimed into `.uploading` right before the app is killed (or
+    /// crashes) has no in-flight tracking once the process exits -- the next
+    /// launch must requeue it rather than leaving it stuck forever.
+    func testStaleUploadingRowsAreRecoveredOnNextLaunch() throws {
+        let (store, path) = try makeFileBackedStore()
+        try store.enqueue(makeLocationRecord())
+        _ = try store.claimBatch(batchID: "batch-1")
+        XCTAssertEqual(try store.pendingCount(), 0, "claimed row should have left .pending")
+
+        let recoveredStore = try SignalStore(path: path)
+
+        XCTAssertEqual(try recoveredStore.pendingCount(), 1)
     }
 }

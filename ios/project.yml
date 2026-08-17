@@ -1,6 +1,6 @@
 name: Signals
 options:
-  bundleIdPrefix: com.signals
+  bundleIdPrefix: com.naberconsulting
   deploymentTarget:
     iOS: "16.0"
 configs:
@@ -23,6 +23,13 @@ targets:
       path: Signals/Resources/Info.plist
       properties:
         UILaunchScreen: {}
+        # Real-device dev builds hit the backend over plain HTTP at a LAN IP
+        # (e.g. http://192.168.1.x:8080) -- ATS exempts localhost/127.0.0.1
+        # automatically but blocks arbitrary LAN HTTP by default, unlike the
+        # Simulator, which shares the host's network stack. Production talks
+        # to a real HTTPS endpoint, so this exception is dev-only in effect.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         NSLocationWhenInUseUsageDescription: "Signals tags every captured record with your location so it can be collated across devices and places."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Continuing to capture location in the background lets Signals keep tagging records when the app isn't in the foreground."
         NSBluetoothAlwaysUsageDescription: "Signals scans for nearby Bluetooth devices as one of the signal types it records."
@@ -34,7 +41,7 @@ targets:
           - com.signals.sync
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.signals.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.naberconsulting.signals.app
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: 5.0

@@ -17,6 +17,10 @@ public final class SyncEngine {
     private var isSyncing = false
     private var backoff = Backoff()
 
+    /// Plan calls for retaining uploaded rows ~24-48h before pruning, purely
+    /// to bound local DB growth independent of upload success rate.
+    private let uploadedRetention: TimeInterval = 48 * 3600
+
     public init(store: SignalStore, apiClient: APIClient, deviceID: UUID, appVersion: String, osVersion: String) {
         self.store = store
         self.apiClient = apiClient
@@ -50,7 +54,10 @@ public final class SyncEngine {
     private func runSyncLoop() {
         guard !isSyncing else { return }
         isSyncing = true
-        defer { isSyncing = false }
+        defer {
+            isSyncing = false
+            pruneOldUploaded()
+        }
 
         while let pendingCount = try? store.pendingCount(), pendingCount > 0 {
             let batchID = UUID().uuidString
@@ -101,6 +108,10 @@ public final class SyncEngine {
                 return
             }
         }
+    }
+
+    private func pruneOldUploaded() {
+        try? store.pruneUploaded(olderThan: Date().addingTimeInterval(-uploadedRetention))
     }
 }
 

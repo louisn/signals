@@ -47,6 +47,20 @@ public final class SignalStore {
     public init(path: String) throws {
         dbQueue = try DatabaseQueue(path: path)
         try migrator.migrate(dbQueue)
+        try recoverStaleUploads()
+    }
+
+    /// Rows left in `.uploading` by a previous run that crashed or was
+    /// killed mid-upload have no in-flight tracking once the process exits
+    /// -- `claimBatch` moves them out of `.pending` immediately, so without
+    /// this they'd be silently stuck forever instead of retried.
+    private func recoverStaleUploads() throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE pending_signals SET status = ?, batch_id = NULL WHERE status = ?",
+                arguments: [PendingSignalStatus.pending.rawValue, PendingSignalStatus.uploading.rawValue]
+            )
+        }
     }
 
     private var migrator: DatabaseMigrator {

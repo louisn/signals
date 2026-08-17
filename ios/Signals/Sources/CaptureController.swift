@@ -39,6 +39,7 @@ final class CaptureController: ObservableObject {
     private let bleCapturer: BLEScanCapturer
     private let networkCapturer: NetworkMetadataCapturer
     private var capturers: [SignalCapturing] { [locationCapturer, bleCapturer, networkCapturer] }
+    private var didBecomeActiveObserver: NSObjectProtocol?
 
     init() {
         let deviceID = DeviceIdentity.currentDeviceID()
@@ -117,7 +118,24 @@ final class CaptureController: ObservableObject {
         syncEngine.start()
         backgroundCoordinator.register()
 
+        // Records captured while backgrounded should flush the moment the
+        // app is reopened, not wait for the next connectivity *change* --
+        // NWPathMonitor only fires on transitions, so if WiFi/cellular never
+        // actually dropped while backgrounded, nothing else would trigger a
+        // sync pass until a manual "Sync now" tap.
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.syncNow()
+        }
+
         refreshPendingCount()
+    }
+
+    deinit {
+        if let didBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(didBecomeActiveObserver)
+        }
     }
 
     func start() {
