@@ -72,15 +72,28 @@ function load() {
       document.getElementById('empty').style.display = data.points.length ? 'none' : 'block';
       document.getElementById('count').textContent = data.points.length + ' grid cells';
 
-      const maxCount = data.points.reduce((m, p) => Math.max(m, p.count), 1);
-      const heatPoints = data.points.map(p => [p.lat, p.lon, p.count / maxCount]);
+      // Log-scale intensity so a handful of outlier-dense cells don't wash
+      // out everything else down near minOpacity -- with raw linear counts,
+      // one cell with 300 observations makes every cell with 1-5 essentially
+      // invisible even though it's still a real data point worth seeing.
+      const maxLog = data.points.reduce((m, p) => Math.max(m, Math.log1p(p.count)), 1);
+      const heatPoints = data.points.map(p => [p.lat, p.lon, Math.log1p(p.count) / maxLog]);
 
       if (heatLayer) map.removeLayer(heatLayer);
-      heatLayer = L.heatLayer(heatPoints, { radius: 20, blur: 15, maxZoom: 17 }).addTo(map);
+      heatLayer = L.heatLayer(heatPoints, {
+        radius: 30,
+        blur: 20,
+        maxZoom: 17,
+        minOpacity: 0.45,
+        gradient: { 0.2: '#2c7bb6', 0.4: '#abd9e9', 0.6: '#ffffbf', 0.8: '#fdae61', 1.0: '#d7191c' },
+      }).addTo(map);
 
       if (!hasFitBounds && data.points.length) {
         const bounds = L.latLngBounds(data.points.map(p => [p.lat, p.lon]));
-        map.fitBounds(bounds, { maxZoom: 14 });
+        // A tiny cluster of points makes fitBounds pick a barely-zoomed-in
+        // view since the bounds themselves are minuscule -- pad it out so a
+        // single cell isn't rendered as a speck on a half-world map.
+        map.fitBounds(bounds.pad(0.5), { maxZoom: 15 });
         hasFitBounds = true;
       }
     });
