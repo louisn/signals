@@ -153,3 +153,49 @@ func (s *Server) handleSignalsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(signalsPageHTML))
 }
+
+const (
+	defaultHeatmapPrecision = 3
+	minHeatmapPrecision     = 1
+	maxHeatmapPrecision     = 6
+)
+
+type heatmapResponse struct {
+	Points    []store.HeatmapPoint `json:"points"`
+	Precision int                  `json:"precision"`
+}
+
+// handleSignalsHeatmap serves grid-binned observation density as JSON, for
+// the heat map viewer to render as a Leaflet heat layer.
+func (s *Server) handleSignalsHeatmap(w http.ResponseWriter, r *http.Request) {
+	precision := defaultHeatmapPrecision
+	if v := r.URL.Query().Get("precision"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= minHeatmapPrecision && n <= maxHeatmapPrecision {
+			precision = n
+		}
+	}
+	signalType := r.URL.Query().Get("signal_type")
+	if signalType != "" && !domain.ValidSignalTypes[signalType] {
+		writeError(w, http.StatusBadRequest, "invalid_signal_type")
+		return
+	}
+
+	points, err := s.db.HeatmapPoints(r.Context(), store.HeatmapOpts{
+		DeviceID:   r.URL.Query().Get("device_id"),
+		SignalType: signalType,
+		Precision:  precision,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "heatmap_failed")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, heatmapResponse{Points: points, Precision: precision})
+}
+
+// handleHeatmapPage serves the self-contained HTML/JS heat map viewer, which
+// fetches /admin/signals/heatmap.json for its data.
+func (s *Server) handleHeatmapPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(heatmapPageHTML))
+}

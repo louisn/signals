@@ -129,3 +129,52 @@ func (p *Postgres) ListSignals(ctx context.Context, opts ListSignalsOpts) ([]Sig
 	}
 	return signals, rows.Err()
 }
+
+// HeatmapPoint is a grid cell of observation density for the admin heat map.
+type HeatmapPoint struct {
+	Lat   float64 `json:"lat"`
+	Lon   float64 `json:"lon"`
+	Count int     `json:"count"`
+}
+
+// HeatmapOpts filters HeatmapPoints. Precision is the number of decimal
+// places lat/lon are rounded to before grouping -- e.g. 3 (~110m cells) is a
+// reasonable default; callers pass "" for DeviceID/SignalType to mean
+// "no filter".
+type HeatmapOpts struct {
+	DeviceID   string
+	SignalType string
+	Precision  int
+}
+
+// HeatmapPoints returns observation counts grouped into a lat/lon grid, for
+// rendering as a density heat map. Only signals with a location are
+// included.
+func (p *Postgres) HeatmapPoints(ctx context.Context, opts HeatmapOpts) ([]HeatmapPoint, error) {
+	rows, err := p.Pool.Query(ctx, `
+		SELECT round(lat::numeric, $1)::float8 AS grid_lat,
+		       round(lon::numeric, $1)::float8 AS grid_lon,
+		       count(*)
+		FROM signals
+		WHERE lat IS NOT NULL AND lon IS NOT NULL
+		  AND ($2 = '' OR device_id = $2::uuid)
+		  AND ($3 = '' OR signal_type = $3)
+		GROUP BY grid_lat, grid_lon
+		ORDER BY count(*) DESC`,
+		opts.Precision, opts.DeviceID, opts.SignalType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	points := make([]HeatmapPoint, 0)
+	for rows.Next() {
+		var pt HeatmapPoint
+		if err := rows.Scan(&pt.Lat, &pt.Lon, &pt.Count); err != nil {
+			return nil, err
+		}
+		points = append(points, pt)
+	}
+	return points, rows.Err()
+}

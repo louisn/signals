@@ -46,6 +46,8 @@ func (s *Server) routes() chi.Router {
 		r.Use(s.adminBasicAuth)
 		r.Get("/admin/signals", s.handleSignalsPage)
 		r.Get("/admin/signals.json", s.handleListSignals)
+		r.Get("/admin/signals/heatmap", s.handleHeatmapPage)
+		r.Get("/admin/signals/heatmap.json", s.handleSignalsHeatmap)
 	})
 
 	return r
