@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"signals-backend/internal/llm"
 	"signals-backend/internal/store"
 )
 
@@ -13,11 +14,12 @@ type Server struct {
 	db        *store.Postgres
 	adminKey  string
 	viewerKey string
+	llm       *llm.Client
 	router    chi.Router
 }
 
-func NewServer(db *store.Postgres, adminKey, viewerKey string) *Server {
-	s := &Server{db: db, adminKey: adminKey, viewerKey: viewerKey}
+func NewServer(db *store.Postgres, adminKey, viewerKey string, llmClient *llm.Client) *Server {
+	s := &Server{db: db, adminKey: adminKey, viewerKey: viewerKey, llm: llmClient}
 	s.router = s.routes()
 	return s
 }
@@ -48,6 +50,9 @@ func (s *Server) routes() chi.Router {
 		r.Get("/admin/signals.json", s.handleListSignals)
 		r.Get("/admin/signals/heatmap", s.handleHeatmapPage)
 		r.Get("/admin/signals/heatmap.json", s.handleSignalsHeatmap)
+		r.Get("/admin/ai", s.handleAIPage)
+		r.Get("/admin/ai/summary.json", s.handleAISummary)
+		r.Post("/admin/ai/ask", s.handleAIAsk)
 	})
 
 	return r

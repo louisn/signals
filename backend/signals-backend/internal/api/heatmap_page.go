@@ -22,7 +22,7 @@ const heatmapPageHTML = `<!doctype html>
 </style>
 </head>
 <body>
-<h1>Signals Heat Map &middot; <a href="/admin/signals">Table view</a></h1>
+<h1>Signals Heat Map &middot; <a href="/admin/signals">Table view</a> &middot; <a href="/admin/ai">AI summary</a></h1>
 <div class="filters">
   <label>Device ID <input id="deviceId" placeholder="uuid" size="36"></label>
   <label>Type

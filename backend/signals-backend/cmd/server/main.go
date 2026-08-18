@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"signals-backend/internal/api"
+	"signals-backend/internal/llm"
 	"signals-backend/internal/store"
 )
 
@@ -17,6 +18,8 @@ func main() {
 	dsn := requireEnv("DATABASE_URL")
 	adminKey := requireEnv("ADMIN_KEY")
 	viewerKey := envOrDefault("VIEWER_KEY", "")
+	anthropicKey := envOrDefault("ANTHROPIC_API_KEY", "")
+	anthropicModel := envOrDefault("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 	addr := envOrDefault("LISTEN_ADDR", ":8080")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -28,7 +31,12 @@ func main() {
 	}
 	defer db.Close()
 
-	server := api.NewServer(db, adminKey, viewerKey)
+	var llmClient *llm.Client
+	if anthropicKey != "" {
+		llmClient = llm.NewClient(anthropicKey, anthropicModel)
+	}
+
+	server := api.NewServer(db, adminKey, viewerKey, llmClient)
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           server,

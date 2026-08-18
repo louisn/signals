@@ -24,7 +24,7 @@ const signalsPageHTML = `<!doctype html>
 </style>
 </head>
 <body>
-<h1>Signals &middot; <a href="/admin/signals/heatmap">Heat map</a></h1>
+<h1>Signals &middot; <a href="/admin/signals/heatmap">Heat map</a> &middot; <a href="/admin/ai">AI summary</a></h1>
 <div class="filters">
   <label>Device ID <input id="deviceId" placeholder="uuid" size="36"></label>
   <label>Type

@@ -178,3 +178,89 @@ func (p *Postgres) HeatmapPoints(ctx context.Context, opts HeatmapOpts) ([]Heatm
 	}
 	return points, rows.Err()
 }
+
+// StatsOpts filters SignalStats. Empty DeviceID/SignalType and nil
+// Since/Until mean "no filter". Since/Until bound captured_at.
+type StatsOpts struct {
+	DeviceID   string
+	SignalType string
+	Since      *time.Time
+	Until      *time.Time
+}
+
+// SignalStats is an aggregate view of observations -- counts only, no raw
+// payloads -- sized for use as LLM context rather than for display.
+type SignalStats struct {
+	Total       int            `json:"total"`
+	ByType      map[string]int `json:"by_type"`
+	ByDevice    map[string]int `json:"by_device_top10"`
+	DeviceCount int            `json:"device_count"`
+	EarliestAt  *time.Time     `json:"earliest_at,omitempty"`
+	LatestAt    *time.Time     `json:"latest_at,omitempty"`
+}
+
+// SignalStats computes aggregate observation counts for the given filters.
+// Deliberately returns only counts/ranges, never row-level payloads, so it's
+// cheap to hand to an LLM as context regardless of how much data exists.
+func (p *Postgres) SignalStats(ctx context.Context, opts StatsOpts) (SignalStats, error) {
+	stats := SignalStats{ByType: map[string]int{}, ByDevice: map[string]int{}}
+
+	const whereClause = `
+		WHERE ($1 = '' OR device_id = $1::uuid)
+		  AND ($2 = '' OR signal_type = $2)
+		  AND ($3::timestamptz IS NULL OR captured_at >= $3)
+		  AND ($4::timestamptz IS NULL OR captured_at <= $4)`
+
+	err := p.Pool.QueryRow(ctx, `
+		SELECT count(*), count(DISTINCT device_id), min(captured_at), max(captured_at)
+		FROM signals`+whereClause,
+		opts.DeviceID, opts.SignalType, opts.Since, opts.Until,
+	).Scan(&stats.Total, &stats.DeviceCount, &stats.EarliestAt, &stats.LatestAt)
+	if err != nil {
+		return SignalStats{}, err
+	}
+
+	typeRows, err := p.Pool.Query(ctx, `
+		SELECT signal_type, count(*)
+		FROM signals`+whereClause+`
+		GROUP BY signal_type`,
+		opts.DeviceID, opts.SignalType, opts.Since, opts.Until,
+	)
+	if err != nil {
+		return SignalStats{}, err
+	}
+	defer typeRows.Close()
+	for typeRows.Next() {
+		var t string
+		var n int
+		if err := typeRows.Scan(&t, &n); err != nil {
+			return SignalStats{}, err
+		}
+		stats.ByType[t] = n
+	}
+	if err := typeRows.Err(); err != nil {
+		return SignalStats{}, err
+	}
+
+	deviceRows, err := p.Pool.Query(ctx, `
+		SELECT device_id, count(*)
+		FROM signals`+whereClause+`
+		GROUP BY device_id
+		ORDER BY count(*) DESC
+		LIMIT 10`,
+		opts.DeviceID, opts.SignalType, opts.Since, opts.Until,
+	)
+	if err != nil {
+		return SignalStats{}, err
+	}
+	defer deviceRows.Close()
+	for deviceRows.Next() {
+		var d string
+		var n int
+		if err := deviceRows.Scan(&d, &n); err != nil {
+			return SignalStats{}, err
+		}
+		stats.ByDevice[d] = n
+	}
+	return stats, deviceRows.Err()
+}
