@@ -16,11 +16,18 @@ class TrackerTagClassifierTest {
     ): TrackerTagType? =
         TrackerTagClassifier.classify(Advertisement(manufacturerData, serviceUuids, serviceData))
 
-    @Test fun appleFindMyFrame() {
+    @Test fun separatedAppleFindMyFrameIsATag() {
+        // 0x12 with the long "separated" length byte (0x19) = unattended tracker.
         assertEquals(
             TrackerTagType.APPLE_FIND_MY,
             classify(manufacturerData = byteArrayOf(0x4C, 0x00, 0x12, 0x19, 0x10)),
         )
+    }
+
+    @Test fun nearbyAppleFindMyFrameIsNotATag() {
+        // 0x12 with the short "nearby" length byte (0x02): broadcast by every
+        // Apple device near its owner, not a tracker -- must not be flagged.
+        assertNull(classify(manufacturerData = byteArrayOf(0x4C, 0x00, 0x12, 0x02, 0x00)))
     }
 
     @Test fun otherAppleAdvertisementIsNotATag() {

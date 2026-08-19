@@ -63,8 +63,11 @@ class CaptureController(context: Context) {
     private val _pendingCount = MutableStateFlow(0)
     val pendingCount: StateFlow<Int> = _pendingCount.asStateFlow()
 
-    private val _tagSightings = MutableStateFlow(0)
-    val tagSightings: StateFlow<Int> = _tagSightings.asStateFlow()
+    /// Distinct tracker devices (by advertiser MAC) classified this session --
+    /// deduped so one tag re-advertising isn't counted many times.
+    private val _trackerTagCount = MutableStateFlow(0)
+    val trackerTagCount: StateFlow<Int> = _trackerTagCount.asStateFlow()
+    private val trackerTagMacs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private val _hasApiKey = MutableStateFlow(ApiKeyStore.read(appContext).isNotEmpty())
     val hasApiKey: StateFlow<Boolean> = _hasApiKey.asStateFlow()
@@ -127,7 +130,10 @@ class CaptureController(context: Context) {
     private fun onCapture(record: SignalRecord) {
         store.enqueue(record)
         if (record.signalType == SignalType.BLE_ADVERTISEMENT && record.payload.has("tag_type")) {
-            _tagSightings.value += 1
+            val mac = record.payload.optString("mac_address")
+            if (mac.isNotEmpty() && trackerTagMacs.add(mac)) {
+                _trackerTagCount.value = trackerTagMacs.size
+            }
         }
         refreshPendingCount()
     }

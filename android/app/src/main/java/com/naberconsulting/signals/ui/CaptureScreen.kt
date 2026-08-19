@@ -32,7 +32,7 @@ fun CaptureScreen(
 ) {
     val isCapturing by controller.isCapturing.collectAsState()
     val pending by controller.pendingCount.collectAsState()
-    val tagSightings by controller.tagSightings.collectAsState()
+    val trackerTagCount by controller.trackerTagCount.collectAsState()
     val hasApiKey by controller.hasApiKey.collectAsState()
     var showProvisioning by remember { mutableStateOf(false) }
 
@@ -47,8 +47,8 @@ fun CaptureScreen(
 
         Text(if (isCapturing) "● Capturing" else "○ Paused")
         Text("$pending records queued for upload")
-        if (tagSightings > 0) {
-            Text("$tagSightings tracker tag sightings this session")
+        if (trackerTagCount > 0) {
+            Text("$trackerTagCount unattended tracker tag(s) detected this session")
         }
 
         Button(onClick = { onToggleCapture(!isCapturing) }) {

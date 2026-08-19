@@ -21,6 +21,9 @@ object TrackerTagClassifier {
     private const val APPLE_COMPANY_ID_LO = 0x4C
     private const val APPLE_COMPANY_ID_HI = 0x00
     private const val APPLE_FIND_MY_PAYLOAD_TYPE = 0x12
+    /// Length byte of the "separated" offline-finding frame (0x19 = 25 bytes,
+    /// the rotating public key). The "nearby" frame is far shorter (~0x02).
+    private const val APPLE_FIND_MY_SEPARATED_MIN_LEN = 0x19
     private const val EDDYSTONE_FMDN_FRAME_TYPE = 0x40
 
     private val serviceUuidTags = mapOf(
@@ -40,7 +43,7 @@ object TrackerTagClassifier {
 
     fun classify(ad: Advertisement): TrackerTagType? {
         classifyByServiceUuid(ad.serviceUuids)?.let { return it }
-        if (isAppleFindMy(ad.manufacturerData)) return TrackerTagType.APPLE_FIND_MY
+        if (isAppleFindMySeparated(ad.manufacturerData)) return TrackerTagType.APPLE_FIND_MY
         if (isGoogleFindMyDevice(ad.serviceData)) return TrackerTagType.GOOGLE_FIND_MY_DEVICE
         return null
     }
@@ -49,17 +52,23 @@ object TrackerTagClassifier {
         uuids.firstNotNullOfOrNull { serviceUuidTags[it.uppercase()] }
 
     /**
-     * Find My network (offline-finding) frames: Apple company id followed by
-     * payload type 0x12. Other Apple advertisement types (AirPods pairing,
-     * Handoff) use different type bytes, so this doesn't flag every Apple
-     * device in range.
+     * A *separated* Find My device -- an unattended tracker broadcasting its
+     * rotating public key while away from its owner. Keyed on Apple company id
+     * + offline-finding type (0x12) + the long "separated" length byte.
+     *
+     * Deliberately excludes the short "nearby" 0x12 frame: that is broadcast
+     * by *every* Apple device participating in the Find My network (iPhones,
+     * Macs, AirPods near their owner), so flagging it produced huge false-
+     * positive "tracker" counts from ordinary ambient Apple devices. Other
+     * Apple types (AirPods pairing 0x07, Handoff 0x0C) are excluded too.
      */
-    private fun isAppleFindMy(manufacturerData: ByteArray?): Boolean {
+    private fun isAppleFindMySeparated(manufacturerData: ByteArray?): Boolean {
         val data = manufacturerData ?: return false
-        if (data.size < 3) return false
-        return (data[0].toInt() and 0xFF) == APPLE_COMPANY_ID_LO &&
+        if (data.size < 4) return false
+        val isFindMy = (data[0].toInt() and 0xFF) == APPLE_COMPANY_ID_LO &&
             (data[1].toInt() and 0xFF) == APPLE_COMPANY_ID_HI &&
             (data[2].toInt() and 0xFF) == APPLE_FIND_MY_PAYLOAD_TYPE
+        return isFindMy && (data[3].toInt() and 0xFF) >= APPLE_FIND_MY_SEPARATED_MIN_LEN
     }
 
     /**

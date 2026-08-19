@@ -14,8 +14,15 @@ final class TrackerTagClassifierTests: XCTestCase {
         ))
     }
 
-    func testAppleFindMyFrame() {
+    func testSeparatedAppleFindMyFrameIsATag() {
+        // 0x12 with the long "separated" length byte (0x19) = unattended tracker.
         XCTAssertEqual(classify(manufacturerData: Data([0x4C, 0x00, 0x12, 0x19, 0x10])), .appleFindMy)
+    }
+
+    func testNearbyAppleFindMyFrameIsNotATag() {
+        // 0x12 with the short "nearby" length byte (0x02): broadcast by every
+        // Apple device near its owner, not a tracker -- must not be flagged.
+        XCTAssertNil(classify(manufacturerData: Data([0x4C, 0x00, 0x12, 0x02, 0x00])))
     }
 
     func testOtherAppleAdvertisementIsNotATag() {
