@@ -8,6 +8,9 @@ struct SignalsApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(appDelegate.capture)
+                .onOpenURL { url in
+                    appDelegate.capture.handleConnectURL(url)
+                }
         }
     }
 }

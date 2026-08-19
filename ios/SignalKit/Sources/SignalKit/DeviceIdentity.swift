@@ -18,6 +18,13 @@ public enum DeviceIdentity {
         return generated
     }
 
+    /// Adopts a backend-minted device ID (from QR/deep-link provisioning),
+    /// replacing the self-generated one. The batch device_id is read live at
+    /// upload time, so already-queued rows simply upload under the new identity.
+    public static func setCurrentDeviceID(_ id: UUID) {
+        writeToKeychain(id)
+    }
+
     private static func readFromKeychain() -> UUID? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

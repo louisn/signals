@@ -28,11 +28,11 @@ public enum APIClientError: Error {
 /// retry/backoff, and queue-state transitions live in `SyncEngine`, which
 /// treats this as a stateless request/response call.
 public final class APIClient {
-    private let baseURL: URL
     private let deviceID: UUID
     private let session: URLSession
     private let keyLock = NSLock()
     private var apiKey: String
+    private var baseURL: URL
 
     public init(baseURL: URL, deviceID: UUID, apiKey: String, session: URLSession = .shared) {
         self.baseURL = baseURL
@@ -47,13 +47,18 @@ public final class APIClient {
     /// `uploadBatch` may be reading the key concurrently from the sync
     /// engine's background queue.
     public func updateAPIKey(_ newKey: String) {
-        setAPIKey(newKey)
-    }
-
-    private func setAPIKey(_ newKey: String) {
         keyLock.lock()
         defer { keyLock.unlock() }
         apiKey = newKey
+    }
+
+    /// Retargets the backend at runtime, so a scanned QR credential pointing
+    /// at a different backend takes effect without rebuilding the client.
+    /// Same lock/threading contract as `updateAPIKey`.
+    public func updateBaseURL(_ newBase: URL) {
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        baseURL = newBase
     }
 
     private func currentAPIKey() -> String {
@@ -62,10 +67,16 @@ public final class APIClient {
         return apiKey
     }
 
+    private func currentBaseURL() -> URL {
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        return baseURL
+    }
+
     public func uploadBatch(_ payload: UploadBatchPayload) async throws -> BatchUploadResponse {
         let currentKey = currentAPIKey()
 
-        var request = URLRequest(url: baseURL.appendingPathComponent("v1/signals/batches"))
+        var request = URLRequest(url: currentBaseURL().appendingPathComponent("v1/signals/batches"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(currentKey)", forHTTPHeaderField: "Authorization")

@@ -45,8 +45,8 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("pendingCountLabel")
 
-            if capture.tagSightingsCount > 0 {
-                Label("\(capture.tagSightingsCount) tracker tag sightings this session", systemImage: "tag")
+            if capture.trackerTagCount > 0 {
+                Label("\(capture.trackerTagCount) unattended tracker tag(s) detected this session", systemImage: "tag")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("tagSightingsLabel")

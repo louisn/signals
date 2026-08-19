@@ -30,6 +30,12 @@ struct ProvisioningView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Scan to connect") {
+                Text("Open your Camera and scan the QR from the backend's provisioning page. The app connects automatically -- nothing to type.")
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+            }
+
             Section("I have a device API key") {
                 SecureField("API key", text: $pastedKey)
                     .textInputAutocapitalization(.never)

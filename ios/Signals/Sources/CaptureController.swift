@@ -11,10 +11,11 @@ import UIKit
 final class CaptureController: ObservableObject {
     @Published private(set) var isCapturing = false
     @Published private(set) var pendingCount = 0
-    /// BLE advertisements classified as tracker tags (AirTag/Find My, Tile,
-    /// etc.) since launch. Session-scoped; the durable record is the queued
-    /// signal itself.
-    @Published private(set) var tagSightingsCount = 0
+    /// Distinct tracker devices (by peripheral UUID) classified this session --
+    /// deduped so one tag re-advertising isn't counted many times. Session-
+    /// scoped; the durable record is the queued signal itself.
+    @Published private(set) var trackerTagCount = 0
+    private var trackerTagPeripheralIDs = Set<String>()
     /// Whether a device API key is known, from a prior provisioning (this
     /// launch or a past one) -- drives whether `RootView` shows
     /// `ProvisioningView`. Capture and local queuing work regardless; only
@@ -34,7 +35,9 @@ final class CaptureController: ObservableObject {
     private static let skippedProvisioningKey = "hasSkippedProvisioning"
     private static let skippedBackgroundUpgradeKey = "hasSkippedBackgroundUpgrade"
 
-    private let deviceID: UUID
+    /// Live device identity; adopted from a scanned QR credential via
+    /// `applyConnection`. `private(set)` so the QR flow is the only writer.
+    private(set) var deviceID: UUID
     private let store: SignalStore
     private let apiClient: APIClient
     private let syncEngine: SyncEngine
@@ -69,7 +72,8 @@ final class CaptureController: ObservableObject {
         hasSkippedBackgroundUpgrade = UserDefaults.standard.bool(forKey: Self.skippedBackgroundUpgradeKey)
         locationAuthorizationStatus = .notDetermined
 
-        let apiClient = APIClient(baseURL: DevConfig.apiBaseURL, deviceID: deviceID, apiKey: initialAPIKey)
+        let baseURL = ConnectionStore.baseURL ?? DevConfig.apiBaseURL
+        let apiClient = APIClient(baseURL: baseURL, deviceID: deviceID, apiKey: initialAPIKey)
         self.apiClient = apiClient
         let syncEngine = SyncEngine(
             store: store,
@@ -173,6 +177,28 @@ final class CaptureController: ObservableObject {
         syncEngine.triggerSync()
     }
 
+    /// Parses a `signals://connect?base=..&device_id=..&key=..` deep link (from
+    /// a scanned QR) and adopts it. Returns false for any non-connect or
+    /// malformed URL. The QR is opened by the iOS Camera app -- no in-app
+    /// scanner, mirroring the Android flow.
+    @discardableResult
+    func handleConnectURL(_ url: URL) -> Bool {
+        guard let link = ConnectLink.parse(url) else { return false }
+        applyConnection(base: link.base, deviceID: link.deviceID, apiKey: link.apiKey)
+        return true
+    }
+
+    /// Adopts a full connection credential: the backend-minted device ID, the
+    /// backend base URL, and the device API key -- no secret typed on the device.
+    func applyConnection(base: URL, deviceID: UUID, apiKey: String) {
+        DeviceIdentity.setCurrentDeviceID(deviceID)
+        self.deviceID = deviceID
+        ConnectionStore.baseURL = base
+        apiClient.updateBaseURL(base)
+        syncEngine.updateDeviceID(deviceID)
+        saveAPIKey(apiKey)
+    }
+
     func skipProvisioning() {
         hasSkippedProvisioning = true
         UserDefaults.standard.set(true, forKey: Self.skippedProvisioningKey)
@@ -230,7 +256,9 @@ extension CaptureController: SignalCapturingDelegate {
         Task { @MainActor in
             try? store.enqueue(record)
             if case .bleAdvertisement(let payload) = record.payload, payload.tagType != nil {
-                tagSightingsCount += 1
+                if trackerTagPeripheralIDs.insert(payload.peripheralUUID).inserted {
+                    trackerTagCount = trackerTagPeripheralIDs.count
+                }
             }
             refreshPendingCount()
         }

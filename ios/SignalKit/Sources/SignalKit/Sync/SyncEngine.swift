@@ -8,7 +8,7 @@ import Network
 public final class SyncEngine {
     private let store: SignalStore
     private let apiClient: APIClient
-    private let deviceID: UUID
+    private var deviceID: UUID
     private let appVersion: String
     private let osVersion: String
 
@@ -55,6 +55,15 @@ public final class SyncEngine {
     public func triggerSync() {
         syncQueue.async { [weak self] in
             self?.runSyncLoop()
+        }
+    }
+
+    /// Adopts a device ID from QR/deep-link provisioning. Applied on the sync
+    /// queue so it's consistent with `runSyncLoop`'s reads; queued rows then
+    /// upload under the new identity (per-row payloads carry no device_id).
+    public func updateDeviceID(_ id: UUID) {
+        syncQueue.async { [weak self] in
+            self?.deviceID = id
         }
     }
 

@@ -30,6 +30,13 @@ targets:
         # to a real HTTPS endpoint, so this exception is dev-only in effect.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # QR connect: the iOS Camera app opens signals://connect?base=..&
+        # device_id=..&key=.. into the app, which adopts the credential with
+        # no typing (see CaptureController.handleConnectURL).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.naberconsulting.signals.app
+            CFBundleURLSchemes:
+              - signals
         NSLocationWhenInUseUsageDescription: "Signals tags every captured record with your location so it can be collated across devices and places."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Continuing to capture location in the background lets Signals keep tagging records when the app isn't in the foreground."
         NSBluetoothAlwaysUsageDescription: "Signals scans for nearby Bluetooth devices as one of the signal types it records."
