@@ -53,6 +53,7 @@ func (s *Server) routes() chi.Router {
 		r.Get("/admin/ai", s.handleAIPage)
 		r.Get("/admin/ai/summary.json", s.handleAISummary)
 		r.Post("/admin/ai/ask", s.handleAIAsk)
+		r.Get("/admin/provision/qr", s.handleProvisionQR)
 	})
 
 	return r
