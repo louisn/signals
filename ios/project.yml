@@ -34,7 +34,7 @@ targets:
         # device_id=..&key=.. into the app, which adopts the credential with
         # no typing (see CaptureController.handleConnectURL).
         CFBundleURLTypes:
-          - CFBundleURLName: com.naberconsulting.signals.app
+          - CFBundleURLName: com.naberconsulting.signals.ios
             CFBundleURLSchemes:
               - signals
         NSLocationWhenInUseUsageDescription: "Signals tags every captured record with your location so it can be collated across devices and places."
@@ -48,8 +48,8 @@ targets:
           - com.signals.sync
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.naberconsulting.signals.app
-        DEVELOPMENT_TEAM: "65B772S3QB"
+        PRODUCT_BUNDLE_IDENTIFIER: com.naberconsulting.signals.ios
+        DEVELOPMENT_TEAM: "MGHC7Y78KG"
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: 5.0
         TARGETED_DEVICE_FAMILY: "1"
