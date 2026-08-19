@@ -9,12 +9,20 @@ const (
 	SignalTypeLocation         = "location"
 	SignalTypeBLEAdvertisement = "ble_advertisement"
 	SignalTypeNetworkMetadata  = "network_metadata"
+	// Android-only capture types. iOS can't enumerate nearby Wi-Fi access
+	// points or neighboring cell towers (no public API); the Android client
+	// can, so these carry richer data (BSSIDs/MACs, cell identities) that the
+	// iOS network_metadata type deliberately omits.
+	SignalTypeWiFiScan = "wifi_scan"
+	SignalTypeCellInfo = "cell_info"
 )
 
 var ValidSignalTypes = map[string]bool{
 	SignalTypeLocation:         true,
 	SignalTypeBLEAdvertisement: true,
 	SignalTypeNetworkMetadata:  true,
+	SignalTypeWiFiScan:         true,
+	SignalTypeCellInfo:         true,
 }
 
 type LocationTag struct {
