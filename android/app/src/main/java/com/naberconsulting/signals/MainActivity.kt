@@ -1,8 +1,11 @@
 package com.naberconsulting.signals
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +30,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         controller = (application as SignalsApp).controller
 
+        handleConnectLink(intent)
+
         setContent {
             MaterialTheme {
                 Surface {
@@ -41,6 +46,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleConnectLink(intent)
+    }
+
+    /** Adopts a scanned `signals://connect` credential; ignores any other intent. */
+    private fun handleConnectLink(intent: Intent?) {
+        val uri: Uri = intent?.data ?: return
+        if (uri.scheme != "signals" || uri.host != "connect") return
+
+        val base = uri.getQueryParameter("base")
+        val deviceId = uri.getQueryParameter("device_id")
+        val key = uri.getQueryParameter("key")
+        if (base.isNullOrBlank() || deviceId.isNullOrBlank() || key.isNullOrBlank()) {
+            Toast.makeText(this, "Invalid connection QR", Toast.LENGTH_LONG).show()
+            return
+        }
+        controller.applyConnection(base, deviceId, key)
+        Toast.makeText(this, "Device connected", Toast.LENGTH_LONG).show()
     }
 
     private fun requestPermissionsThenStart() {

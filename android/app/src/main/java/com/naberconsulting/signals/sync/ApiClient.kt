@@ -25,17 +25,19 @@ data class BatchUploadResponse(
  * re-provisioning) without rebuilding the engine.
  */
 class ApiClient(
-    private val baseUrl: String,
+    baseUrl: String,
     apiKey: String,
     private val client: OkHttpClient = defaultClient(),
 ) {
     private val apiKeyRef = AtomicReference(apiKey)
+    private val baseUrlRef = AtomicReference(baseUrl)
 
     fun updateApiKey(newKey: String) = apiKeyRef.set(newKey)
+    fun updateBaseUrl(newBase: String) = baseUrlRef.set(newBase)
 
     fun uploadBatch(body: JSONObject): BatchUploadResponse {
         val request = Request.Builder()
-            .url("${baseUrl.trimEnd('/')}/v1/signals/batches")
+            .url("${baseUrlRef.get().trimEnd('/')}/v1/signals/batches")
             .header("Content-Type", "application/json")
             .header("Authorization", "Bearer ${apiKeyRef.get()}")
             .post(body.toString().toRequestBody(JSON))

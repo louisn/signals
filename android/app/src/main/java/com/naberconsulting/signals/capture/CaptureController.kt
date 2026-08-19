@@ -6,6 +6,7 @@ import com.naberconsulting.signals.DevConfig
 import com.naberconsulting.signals.model.SignalRecord
 import com.naberconsulting.signals.model.SignalType
 import com.naberconsulting.signals.provisioning.ApiKeyStore
+import com.naberconsulting.signals.provisioning.BaseUrlStore
 import com.naberconsulting.signals.provisioning.DeviceIdentity
 import com.naberconsulting.signals.provisioning.ProvisioningClient
 import com.naberconsulting.signals.queue.SignalStore
@@ -25,10 +26,16 @@ import kotlinx.coroutines.withContext
 class CaptureController(context: Context) {
 
     private val appContext = context.applicationContext
-    val deviceId: String = DeviceIdentity.currentDeviceId(appContext)
+
+    /** Live device identity; adopted from a scanned credential via [applyConnection]. */
+    @Volatile var deviceId: String = DeviceIdentity.currentDeviceId(appContext)
+        private set
 
     private val store = SignalStore(appContext)
-    private val apiClient = ApiClient(DevConfig.apiBaseUrl, ApiKeyStore.read(appContext))
+    private val apiClient = ApiClient(
+        BaseUrlStore.read(appContext) ?: DevConfig.apiBaseUrl,
+        ApiKeyStore.read(appContext),
+    )
 
     private val syncEngine = SyncEngine(
         appContext, store, apiClient,
@@ -83,6 +90,19 @@ class CaptureController(context: Context) {
     fun syncNow() {
         syncEngine.triggerSync()
         refreshPendingCount()
+    }
+
+    /**
+     * Adopts a full connection credential from a scanned `signals://connect`
+     * deep link: the backend-minted device id, the backend base URL, and the
+     * device api key. No secret is typed on the device.
+     */
+    fun applyConnection(base: String, newDeviceId: String, apiKey: String) {
+        DeviceIdentity.setDeviceId(appContext, newDeviceId)
+        deviceId = newDeviceId
+        BaseUrlStore.save(appContext, base)
+        apiClient.updateBaseUrl(base)
+        saveApiKey(apiKey)
     }
 
     fun saveApiKey(key: String) {
