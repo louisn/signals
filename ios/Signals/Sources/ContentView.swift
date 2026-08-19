@@ -45,6 +45,13 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("pendingCountLabel")
 
+            if capture.tagSightingsCount > 0 {
+                Label("\(capture.tagSightingsCount) tracker tag sightings this session", systemImage: "tag")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("tagSightingsLabel")
+            }
+
             Button(capture.isCapturing ? "Pause capture" : "Start capture") {
                 capture.isCapturing ? capture.pause() : capture.start()
             }

@@ -67,12 +67,26 @@ extension BLEScanCapturer: CBCentralManagerDelegate {
             .map(\.uuidString) ?? []
         let txPower = (advertisementData[CBAdvertisementDataTxPowerLevelKey] as? NSNumber)?.intValue
 
+        // Overflow UUIDs (services iOS relegates out of the primary list)
+        // still identify a tag ecosystem, so include them for classification
+        // -- but keep the payload's service_uuids as the primary list only.
+        let overflowUUIDs = (advertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID])?
+            .map(\.uuidString) ?? []
+        let serviceData = (advertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data])?
+            .reduce(into: [String: Data]()) { $0[$1.key.uuidString] = $1.value } ?? [:]
+        let tagType = TrackerTagClassifier.classify(.init(
+            manufacturerData: advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data,
+            serviceUUIDs: serviceUUIDs + overflowUUIDs,
+            serviceData: serviceData
+        ))
+
         let payload = BLEAdvertisementPayload(
             peripheralUUID: peripheral.identifier.uuidString,
             name: advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name,
             rssi: RSSI.intValue,
             serviceUUIDs: serviceUUIDs,
-            txPower: txPower
+            txPower: txPower,
+            tagType: tagType?.rawValue
         )
         let record = SignalRecord(
             deviceID: deviceID,

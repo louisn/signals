@@ -26,6 +26,9 @@ public struct BLEAdvertisementPayload: Codable, Equatable {
     public var rssi: Int
     public var serviceUUIDs: [String]
     public var txPower: Int?
+    /// Set when the advertisement matches a known tracker-tag signature
+    /// (see `TrackerTagClassifier`); nil for everything else.
+    public var tagType: String?
 
     private enum CodingKeys: String, CodingKey {
         case peripheralUUID = "peripheral_uuid"
@@ -33,14 +36,16 @@ public struct BLEAdvertisementPayload: Codable, Equatable {
         case rssi
         case serviceUUIDs = "service_uuids"
         case txPower = "tx_power"
+        case tagType = "tag_type"
     }
 
-    public init(peripheralUUID: String, name: String?, rssi: Int, serviceUUIDs: [String], txPower: Int?) {
+    public init(peripheralUUID: String, name: String?, rssi: Int, serviceUUIDs: [String], txPower: Int?, tagType: String? = nil) {
         self.peripheralUUID = peripheralUUID
         self.name = name
         self.rssi = rssi
         self.serviceUUIDs = serviceUUIDs
         self.txPower = txPower
+        self.tagType = tagType
     }
 }
 

@@ -11,6 +11,10 @@ import UIKit
 final class CaptureController: ObservableObject {
     @Published private(set) var isCapturing = false
     @Published private(set) var pendingCount = 0
+    /// BLE advertisements classified as tracker tags (AirTag/Find My, Tile,
+    /// etc.) since launch. Session-scoped; the durable record is the queued
+    /// signal itself.
+    @Published private(set) var tagSightingsCount = 0
     /// Whether a device API key is known, from a prior provisioning (this
     /// launch or a past one) -- drives whether `RootView` shows
     /// `ProvisioningView`. Capture and local queuing work regardless; only
@@ -225,6 +229,9 @@ extension CaptureController: SignalCapturingDelegate {
     nonisolated func signalCapturer(_ capturer: SignalCapturing, didCapture record: SignalRecord) {
         Task { @MainActor in
             try? store.enqueue(record)
+            if case .bleAdvertisement(let payload) = record.payload, payload.tagType != nil {
+                tagSightingsCount += 1
+            }
             refreshPendingCount()
         }
     }
