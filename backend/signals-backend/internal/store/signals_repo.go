@@ -130,6 +130,21 @@ func (p *Postgres) ListSignals(ctx context.Context, opts ListSignalsOpts) ([]Sig
 	return signals, rows.Err()
 }
 
+// CountSignals returns the total number of signals matching the filters,
+// ignoring limit/offset -- for the admin viewer's "total rows" display and
+// pagination bounds.
+func (p *Postgres) CountSignals(ctx context.Context, opts ListSignalsOpts) (int, error) {
+	var n int
+	err := p.Pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM signals
+		WHERE ($1 = '' OR device_id = $1::uuid)
+		  AND ($2 = '' OR signal_type = $2)`,
+		opts.DeviceID, opts.SignalType,
+	).Scan(&n)
+	return n, err
+}
+
 // HeatmapPoint is a grid cell of observation density for the admin heat map.
 type HeatmapPoint struct {
 	Lat   float64 `json:"lat"`

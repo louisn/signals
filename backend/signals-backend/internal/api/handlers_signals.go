@@ -101,6 +101,7 @@ const (
 
 type listSignalsResponse struct {
 	Signals []store.SignalRow `json:"signals"`
+	Total   int               `json:"total"`
 	Limit   int               `json:"limit"`
 	Offset  int               `json:"offset"`
 	HasMore bool              `json:"has_more"`
@@ -128,22 +129,30 @@ func (s *Server) handleListSignals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.db.ListSignals(r.Context(), store.ListSignalsOpts{
+	listOpts := store.ListSignalsOpts{
 		DeviceID:   r.URL.Query().Get("device_id"),
 		SignalType: signalType,
 		Limit:      limit,
 		Offset:     offset,
-	})
+	}
+	rows, err := s.db.ListSignals(r.Context(), listOpts)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_failed")
 		return
 	}
 
+	total, err := s.db.CountSignals(r.Context(), listOpts)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "count_failed")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, listSignalsResponse{
 		Signals: rows,
+		Total:   total,
 		Limit:   limit,
 		Offset:  offset,
-		HasMore: len(rows) == limit,
+		HasMore: offset+len(rows) < total,
 	})
 }
 

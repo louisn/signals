@@ -10,27 +10,41 @@ const heatmapPageHTML = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Signals Heat Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #222; }
-  h1 { font-size: 1.1rem; margin: 0.75rem 1rem; }
-  .filters { margin: 0 1rem 0.75rem; display: flex; gap: 0.5rem; align-items: center; }
-  .filters input, .filters select { padding: 0.3rem; }
-  #map { height: calc(100vh - 4.5rem); width: 100%; }
-  .empty { margin: 0 1rem; color: #888; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #222;
+         display: flex; flex-direction: column; height: 100vh; }
+  h1 { font-size: 1.1rem; margin: 0.6rem 0.75rem 0.4rem; }
+  h1 a { white-space: nowrap; }
+  .filters { margin: 0 0.75rem 0.6rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .filters label { display: flex; flex-direction: column; font-size: 0.8rem; color: #555; gap: 0.15rem; }
+  .filters input, .filters select { padding: 0.5rem; font-size: 1rem; }
+  #deviceId { min-width: 12rem; }
+  button { padding: 0.5rem 0.9rem; font-size: 1rem; }
+  #count { font-size: 0.85rem; color: #555; }
+  #map { flex: 1; min-height: 0; width: 100%; }
+  .empty { margin: 0 0.75rem 0.6rem; color: #888; }
+  @media (max-width: 600px) {
+    .filters { flex-direction: column; align-items: stretch; }
+    .filters label, .filters input, .filters select, .filters button { width: 100%; }
+  }
 </style>
 </head>
 <body>
 <h1>Signals Heat Map &middot; <a href="/admin/signals">Table view</a> &middot; <a href="/admin/ai">AI summary</a></h1>
 <div class="filters">
-  <label>Device ID <input id="deviceId" placeholder="uuid" size="36"></label>
+  <label>Device ID <input id="deviceId" placeholder="uuid"></label>
   <label>Type
     <select id="signalType">
       <option value="">all</option>
       <option value="location">location</option>
       <option value="ble_advertisement">ble_advertisement</option>
       <option value="network_metadata">network_metadata</option>
+      <option value="wifi_scan">wifi_scan</option>
+      <option value="cell_info">cell_info</option>
     </select>
   </label>
   <label>Grid
