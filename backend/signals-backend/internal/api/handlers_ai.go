@@ -14,9 +14,9 @@ import (
 
 const maxQuestionLen = 500
 
-const aiSummarySystemPrompt = `You are summarizing device signal observation data for the operator of an internal data-collection tool. You will be given aggregate JSON statistics (counts by type/device, a date range, and the densest observation grid cells) -- never raw records. Write a concise, factual 3-5 sentence summary covering volume, notable devices, and any geographic hotspots. Do not speculate beyond the given numbers.`
+const aiSummarySystemPrompt = `You are summarizing device signal observation data for the operator of an internal data-collection tool. You will be given aggregate JSON statistics (counts by type/device, a date range, the densest observation grid cells, and tracker_tags_by_distinct_device -- counts of detected tracker tags such as AirTag/Find My, Tile, or Samsung SmartTag by distinct device) -- never raw records. Write a concise, factual 3-5 sentence summary covering volume, notable devices, any geographic hotspots, and any tracker tags detected. Do not speculate beyond the given numbers.`
 
-const aiAskSystemPrompt = `You are answering an operator's question about device signal observation data for an internal data-collection tool. You will be given aggregate JSON statistics (counts by type/device, a date range, and the densest observation grid cells) -- never raw records. Answer using ONLY this data. If the data doesn't contain the answer, say so explicitly rather than guessing.`
+const aiAskSystemPrompt = `You are answering an operator's question about device signal observation data for an internal data-collection tool. You will be given aggregate JSON statistics (counts by type/device, a date range, the densest observation grid cells, and tracker_tags_by_distinct_device -- counts of detected tracker tags such as AirTag/Find My, Tile, or Samsung SmartTag by distinct device) -- never raw records. Answer using ONLY this data. An empty tracker_tags_by_distinct_device means no tracker tags were detected. If the data doesn't contain the answer, say so explicitly rather than guessing.`
 
 // aiFilters is the shared query-param filter set for both AI endpoints,
 // parsed the same way as handleSignalsHeatmap's filters plus an optional

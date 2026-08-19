@@ -197,13 +197,21 @@ type SignalStats struct {
 	DeviceCount int            `json:"device_count"`
 	EarliestAt  *time.Time     `json:"earliest_at,omitempty"`
 	LatestAt    *time.Time     `json:"latest_at,omitempty"`
+	// Distinct tracker devices per ecosystem (AirTag/Find My, Tile, etc.),
+	// counted by advertiser identity (MAC on Android, peripheral UUID on iOS)
+	// rather than raw advertisements. Empty when no tags were classified.
+	TrackerTagsByDistinctDevice map[string]int `json:"tracker_tags_by_distinct_device"`
 }
 
 // SignalStats computes aggregate observation counts for the given filters.
 // Deliberately returns only counts/ranges, never row-level payloads, so it's
 // cheap to hand to an LLM as context regardless of how much data exists.
 func (p *Postgres) SignalStats(ctx context.Context, opts StatsOpts) (SignalStats, error) {
-	stats := SignalStats{ByType: map[string]int{}, ByDevice: map[string]int{}}
+	stats := SignalStats{
+		ByType:                      map[string]int{},
+		ByDevice:                    map[string]int{},
+		TrackerTagsByDistinctDevice: map[string]int{},
+	}
 
 	const whereClause = `
 		WHERE ($1 = '' OR device_id = $1::uuid)
@@ -262,5 +270,33 @@ func (p *Postgres) SignalStats(ctx context.Context, opts StatsOpts) (SignalStats
 		}
 		stats.ByDevice[d] = n
 	}
-	return stats, deviceRows.Err()
+	if err := deviceRows.Err(); err != nil {
+		return SignalStats{}, err
+	}
+
+	// Distinct tracker devices per ecosystem. Counts advertiser identity, not
+	// raw ads, so a single tag re-advertising isn't counted many times; falls
+	// back to peripheral_uuid for iOS payloads, which carry no MAC.
+	tagRows, err := p.Pool.Query(ctx, `
+		SELECT payload->>'tag_type' AS tag,
+		       count(DISTINCT COALESCE(payload->>'mac_address', payload->>'peripheral_uuid'))
+		FROM signals`+whereClause+`
+		  AND signal_type = 'ble_advertisement'
+		  AND payload->>'tag_type' IS NOT NULL
+		GROUP BY tag`,
+		opts.DeviceID, opts.SignalType, opts.Since, opts.Until,
+	)
+	if err != nil {
+		return SignalStats{}, err
+	}
+	defer tagRows.Close()
+	for tagRows.Next() {
+		var tag string
+		var n int
+		if err := tagRows.Scan(&tag, &n); err != nil {
+			return SignalStats{}, err
+		}
+		stats.TrackerTagsByDistinctDevice[tag] = n
+	}
+	return stats, tagRows.Err()
 }
